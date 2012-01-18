@@ -44,7 +44,7 @@ if use_dhcp then
   mac = params[:mac]
   xen_bridge = params[:xen_bridge]
 
-  bash "configure network DHCP #{hostname}" do
+  bash "configure mac address #{hostname}" do
     action :nothing
     user "root"
     code <<-EOH
@@ -53,6 +53,16 @@ if use_dhcp then
     NETWORK_UUID=$(xe network-list bridge=#{xen_bridge} | grep -P "^uuid" | cut -f2 -d: | cut -f2 -d" ")
     xe vif-destroy uuid=$VIF_UUID &> /dev/null
     xe vif-create vm-uuid=$UUID mac=#{mac} network-uuid=$NETWORK_UUID device=0 &> /dev/null
+    EOH
+    not_if mac.nil?
+    subscribes :run, resources("bash[create-instance-#{hostname}]"), :immediately
+  end
+
+  bash "start #{hostname}" do
+    action :nothing
+    user "root"
+    code <<-EOH
+    UUID=$(xe vm-list name-label=#{hostname} | grep uuid | sed -e 's|.*: ||')
     xe vm-start uuid=$UUID &> /dev/null
     EOH
     subscribes :run, resources("bash[create-instance-#{hostname}]"), :immediately
